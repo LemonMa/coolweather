@@ -109,7 +109,7 @@ public class WeatherActivity extends AppCompatActivity {
         });
 
 
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
+        final SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather",null);
         if(weatherString != null)
         {
@@ -122,12 +122,16 @@ public class WeatherActivity extends AppCompatActivity {
         {
             mWeatherId = getIntent().getStringExtra("weather_id");
             weatherLayout.setVisibility(View.INVISIBLE);
+            Log.d(TAG,"mWeatherId is "+mWeatherId);
             requestWeather(mWeatherId);
         }
 
         swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
+                String weatherString = prefs.getString("weather",null);
+                Weather weather = Utility.handleWeatherResponse(weatherString);
+                mWeatherId = weather.basic.weatherId;
                 Log.d(TAG,"mWeatherId2 is "+mWeatherId);
                 requestWeather(mWeatherId);
             }
