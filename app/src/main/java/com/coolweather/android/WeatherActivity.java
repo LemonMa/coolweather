@@ -1,8 +1,11 @@
 package com.coolweather.android;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Build;
@@ -21,6 +24,7 @@ import android.widget.Toast;
 import com.bumptech.glide.Glide;
 import com.coolweather.android.gson.Forecast;
 import com.coolweather.android.gson.Weather;
+import com.coolweather.android.service.AutoUpdateService;
 import com.coolweather.android.util.HttpUtil;
 import com.coolweather.android.util.Utility;
 
@@ -58,6 +62,13 @@ public class WeatherActivity extends AppCompatActivity {
 
     private ImageView bingPicImg;
 
+    public SwipeRefreshLayout swipeRefresh;
+
+    private String mWeatherId;
+
+    public DrawerLayout drawerLayout;
+
+    private Button navButton;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -84,18 +95,43 @@ public class WeatherActivity extends AppCompatActivity {
         bingPicImg = (ImageView)findViewById(R.id.bing_pic_img);
 
 
+        swipeRefresh = (SwipeRefreshLayout)findViewById(R.id.swipe_refresh);
+        swipeRefresh.setColorSchemeResources(R.color.colorPrimary);
+
+        drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+        navButton = (Button) findViewById(R.id.nav_button);
+
+        navButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                drawerLayout.openDrawer(GravityCompat.START);
+            }
+        });
+
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         String weatherString = prefs.getString("weather",null);
         if(weatherString != null)
         {
             Weather weather = Utility.handleWeatherResponse(weatherString);
+            mWeatherId = weather.basic.weatherId;
+            Log.d(TAG,"mWeatherId is "+mWeatherId);
+            Log.d(TAG,"weather is "+weather);
             showWeatherInfo(weather);
         }else
         {
-            String weatherId = getIntent().getStringExtra("weather_id");
-            requestWeather(weatherId);
+            mWeatherId = getIntent().getStringExtra("weather_id");
+            weatherLayout.setVisibility(View.INVISIBLE);
+            requestWeather(mWeatherId);
         }
+
+        swipeRefresh.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                Log.d(TAG,"mWeatherId2 is "+mWeatherId);
+                requestWeather(mWeatherId);
+            }
+        });
 
         String bingPic = prefs.getString("bing_pic",null);
         if(bingPic != null)
@@ -122,7 +158,9 @@ public class WeatherActivity extends AppCompatActivity {
                     @Override
                     public void run() {
                         Toast.makeText(WeatherActivity.this,"获取天气信息失败",Toast.LENGTH_SHORT).show();
+                        swipeRefresh.setRefreshing(false);
                     }
+
                 });
             }
 
@@ -145,6 +183,7 @@ public class WeatherActivity extends AppCompatActivity {
                             Toast.makeText(WeatherActivity.this,"获取天气信息失败",Toast.LENGTH_SHORT).show();
 
                         }
+                        swipeRefresh.setRefreshing(false);
                     }
                 });
             }
@@ -190,6 +229,12 @@ public class WeatherActivity extends AppCompatActivity {
         weatherInfoText.setText(weatherInfo);
 
         forecastLayout.removeAllViews();
+
+        if(weather != null &&"ok".equals(weather.status))
+        {
+            Intent intent = new Intent(this, AutoUpdateService.class);
+            startService(intent);
+        }
 
         Log.d(TAG,"forecastList is " + weather.forecastList);
         for(Forecast forecast:weather.forecastList)
